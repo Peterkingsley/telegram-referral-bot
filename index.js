@@ -101,13 +101,20 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 
         } else {
             // Case 2: A regular /start command, not a referral
-            const referralLink = `https://t.me/${botUsername}?start=${userId}`;
-            bot.sendMessage(chatId,
-                `👋 Welcome to the Rishu Referral Contest, ${firstName}!\n\n` +
-                `Share your unique link to invite people to our group. You'll get a point for each person who joins.\n\n` +
-                `Your unique referral link is:\n${referralLink}\n\n` +
-                `Use /rank to see your position and /top10 to see the leaderboard.`
-            );
+            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory — and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Tap “Get My Referral Link” to start earning points.\n\nYou can also check your rank, see the leaderboard, and stay tuned for Rishu updates & meme coin alpha.\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+
+            const options = {
+                reply_markup: {
+                    keyboard: [
+                        [{ text: '🔗 Get My Referral Link' }],
+                        [{ text: '🏆 My Rank' }, { text: '📈 Top 10 Leaderboard' }]
+                    ],
+                    resize_keyboard: true,
+                    one_time_keyboard: false
+                }
+            };
+
+            bot.sendMessage(chatId, welcomeMessage, options);
         }
     } catch (error) {
         console.error('Error in /start handler:', error);
@@ -115,16 +122,16 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
     }
 });
 
-// Handler for the /mylink command
-bot.onText(/\/mylink/, (msg) => {
+// Handler for the /mylink command and the "Get My Referral Link" button
+bot.onText(/\/mylink|🔗 Get My Referral Link/, (msg) => {
     const chatId = msg.chat.id;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
     bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`);
 });
 
 
-// Handler for the /rank command
-bot.onText(/\/rank/, async (msg) => {
+// Handler for the /rank command and "My Rank" button
+bot.onText(/\/rank|🏆 My Rank/, async (msg) => {
     const chatId = msg.chat.id;
     try {
         // The subquery calculates the rank by counting how many users have more referrals
@@ -137,11 +144,11 @@ bot.onText(/\/rank/, async (msg) => {
         `;
         const res = await pool.query(rankQuery, [chatId]);
 
-        if (res.rows.length > 0) {
+        if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
             const { position, referral_count } = res.rows[0];
             bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`);
         } else {
-            bot.sendMessage(chatId, "You haven't referred anyone yet. Use /start to get your link!");
+            bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!");
         }
     } catch (error) {
         console.error('Error in /rank handler:', error);
@@ -150,8 +157,8 @@ bot.onText(/\/rank/, async (msg) => {
 });
 
 
-// Handler for the /top10 command
-bot.onText(/\/top10/, async (msg) => {
+// Handler for the /top10 command and "Top 10 Leaderboard" button
+bot.onText(/\/top10|📈 Top 10 Leaderboard/, async (msg) => {
     const chatId = msg.chat.id;
 
     // Admin check for groups
@@ -159,7 +166,7 @@ bot.onText(/\/top10/, async (msg) => {
         try {
             const chatMember = await bot.getChatMember(chatId, msg.from.id);
             if (!['creator', 'administrator'].includes(chatMember.status)) {
-                bot.sendMessage(chatId, "Sorry, only group admins can use this command here.");
+                // Silently ignore non-admins in groups
                 return;
             }
         } catch (error) {
