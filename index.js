@@ -121,7 +121,7 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 
         } else {
             // Case 2: A regular /start command, not a referral
-            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory — and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Tap “Get My Referral Link” to start earning points.\n\nYou can also check your rank, see the leaderboard, and stay tuned for Rishu updates & meme coin alpha.\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Tap “Get My Referral Link” to start earning points.\n\nYou can also check your rank, see the leaderboard, and stay tuned for Rishu updates & meme coin alpha.\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
 
             bot.sendMessage(chatId, welcomeMessage, mainReplyKeyboard);
         }
@@ -217,7 +217,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
     if (data === 'main_menu') {
         // Send the main welcome message again when "Back to Menu" is pressed
-        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory — and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Tap “Get My Referral Link” to start earning points.\n\nYou can also check your rank, see the leaderboard, and stay tuned for Rishu updates & meme coin alpha.\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Tap “Get My Referral Link” to start earning points.\n\nYou can also check your rank, see the leaderboard, and stay tuned for Rishu updates & meme coin alpha.\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
         bot.sendMessage(msg.chat.id, welcomeMessage, mainReplyKeyboard);
     }
 });
