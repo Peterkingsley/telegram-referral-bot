@@ -65,38 +65,52 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
     const userId = msg.from.id;
     const username = msg.from.username;
     const firstName = msg.from.first_name;
-    const referrerId = match ? match[1] : null; // The referrer's ID, if present
+    const newReferrerId = match ? match[1] : null; // The referrer's ID, if present
 
     try {
         // Ensure the user is in our database
         await getOrCreateUser(userId, username, firstName);
 
         // Case 1: The user was referred by someone
-        if (referrerId && Number(referrerId) !== userId) {
-            // Check if this user was already referred
-            const existingReferral = await pool.query('SELECT * FROM referrals WHERE referred_id = $1', [userId]);
+        if (newReferrerId && Number(newReferrerId) !== userId) {
+            const client = await pool.connect();
+            try {
+                // Check if this user was already referred
+                const existingReferralRes = await client.query('SELECT * FROM referrals WHERE referred_id = $1', [userId]);
+                const existingReferral = existingReferralRes.rows[0];
 
-            if (existingReferral.rows.length === 0) {
-                // Record the referral
-                await pool.query('INSERT INTO referrals (referrer_id, referred_id) VALUES ($1, $2)', [referrerId, userId]);
-                bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`);
+                // Logic to generate a one-time use invite link
+                const generateInviteLink = async () => {
+                     try {
+                        const inviteLink = await bot.createChatInviteLink(groupChatId, {
+                            member_limit: 1,
+                            name: `Referral for ${firstName}`
+                        });
+                        bot.sendMessage(chatId, `Here is your personal one-time link to the group: ${inviteLink.invite_link}`);
+                    } catch (e) {
+                        console.error("Failed to create invite link. Is the bot an admin with invite permissions?", e);
+                        bot.sendMessage(chatId, "Sorry, I couldn't generate an invite link right now. Please contact an admin.");
+                    }
+                };
 
-                try {
-                    // Generate a one-time use invite link
-                    const inviteLink = await bot.createChatInviteLink(groupChatId, {
-                        member_limit: 1,
-                        name: `Referral for ${firstName}`
-                    });
-                    bot.sendMessage(chatId, `Here is your personal one-time link to the group: ${inviteLink.invite_link}`);
-                } catch (e) {
-                    console.error("Failed to create invite link. Is the bot an admin with invite permissions?", e);
-                    bot.sendMessage(chatId, "Sorry, I couldn't generate an invite link right now. Please contact an admin.");
+                if (!existingReferral) {
+                    // This is a completely new referral
+                    await client.query('INSERT INTO referrals (referrer_id, referred_id) VALUES ($1, $2)', [newReferrerId, userId]);
+                    bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`);
+                    await generateInviteLink();
+                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
+                } else if (existingReferral && !existingReferral.is_active) {
+                    // User exists but left the group. We can re-assign them to a new referrer.
+                    await client.query('UPDATE referrals SET referrer_id = $1 WHERE referred_id = $2', [newReferrerId, userId]);
+                    bot.sendMessage(chatId, `Welcome back, ${firstName}! You are being referred by a new user. Please join the group to complete the referral.`);
+                    await generateInviteLink();
+                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} (a returning user) has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
+                } else {
+                    // User is already an active member referred by someone else.
+                    bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you are already an active member of our group.`);
                 }
-
-                // Notify the referrer
-                bot.sendMessage(referrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${referrerId}, maybe they blocked the bot.`));
-            } else {
-                 bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you've already used a referral link. If you need a new link to join, please contact an admin.`);
+            } finally {
+                client.release();
             }
 
         } else {
