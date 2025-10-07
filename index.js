@@ -197,7 +197,7 @@ bot.onText(/\/top10|📈 Top 10 Leaderboard/, async (msg) => {
         let leaderboardText = '🏆 **Top 10 Referrers** 🏆\n\n';
         res.rows.forEach((row, index) => {
             const name = row.username ? `@${row.username}` : row.first_name;
-            leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referrals\n`;
+            leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referral(s)\n`;
         });
 
         bot.sendMessage(chatId, leaderboardText, backToMenuKeyboard);
