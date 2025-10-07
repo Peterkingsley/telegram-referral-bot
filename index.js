@@ -8,12 +8,12 @@ const { Pool } = require('pg'); // PostgreSQL client
 // 2. Get secrets from environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const databaseUrl = process.env.DATABASE_URL;
-const groupChatId = process.env.GROUP_CHAT_ID; // Your numeric Telegram Group Chat ID
+const groupInviteLink = process.env.GROUP_INVITE_LINK; // Your telegram group invite link
 const botUsername = process.env.BOT_USERNAME; // Your bot's username without the '@'
 
 // Basic validation to ensure environment variables are set
-if (!token || !databaseUrl || !groupChatId || !botUsername) {
-    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_CHAT_ID, and BOT_USERNAME are set in your .env file.');
+if (!token || !databaseUrl || !groupInviteLink || !botUsername) {
+    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_INVITE_LINK, and BOT_USERNAME are set in your .env file.');
     process.exit(1);
 }
 
@@ -79,31 +79,17 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
                 const existingReferralRes = await client.query('SELECT * FROM referrals WHERE referred_id = $1', [userId]);
                 const existingReferral = existingReferralRes.rows[0];
 
-                // Logic to generate a one-time use invite link
-                const generateInviteLink = async () => {
-                     try {
-                        const inviteLink = await bot.createChatInviteLink(groupChatId, {
-                            member_limit: 1,
-                            name: `Referral for ${firstName}`
-                        });
-                        bot.sendMessage(chatId, `Here is your personal one-time link to the group: ${inviteLink.invite_link}`);
-                    } catch (e) {
-                        console.error("Failed to create invite link. Is the bot an admin with invite permissions?", e);
-                        bot.sendMessage(chatId, "Sorry, I couldn't generate an invite link right now. Please contact an admin.");
-                    }
-                };
-
                 if (!existingReferral) {
                     // This is a completely new referral
                     await client.query('INSERT INTO referrals (referrer_id, referred_id) VALUES ($1, $2)', [newReferrerId, userId]);
                     bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`);
-                    await generateInviteLink();
+                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
                     bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
                 } else if (existingReferral && !existingReferral.is_active) {
                     // User exists but left the group. We can re-assign them to a new referrer.
                     await client.query('UPDATE referrals SET referrer_id = $1 WHERE referred_id = $2', [newReferrerId, userId]);
                     bot.sendMessage(chatId, `Welcome back, ${firstName}! You are being referred by a new user. Please join the group to complete the referral.`);
-                    await generateInviteLink();
+                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
                     bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} (a returning user) has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
                 } else {
                     // User is already an active member referred by someone else.
