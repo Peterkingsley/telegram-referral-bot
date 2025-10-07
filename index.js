@@ -8,12 +8,12 @@ const { Pool } = require('pg'); // PostgreSQL client
 // 2. Get secrets from environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const databaseUrl = process.env.DATABASE_URL;
-const groupInviteLink = process.env.GROUP_INVITE_LINK; // Your telegram group invite link
+const groupChatId = process.env.GROUP_CHAT_ID; // Your numeric Telegram Group Chat ID
 const botUsername = process.env.BOT_USERNAME; // Your bot's username without the '@'
 
 // Basic validation to ensure environment variables are set
-if (!token || !databaseUrl || !groupInviteLink || !botUsername) {
-    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_INVITE_LINK, and BOT_USERNAME are set in your .env file.');
+if (!token || !databaseUrl || !groupChatId || !botUsername) {
+    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_CHAT_ID, and BOT_USERNAME are set in your .env file.');
     process.exit(1);
 }
 
@@ -80,12 +80,23 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
                 // Record the referral
                 await pool.query('INSERT INTO referrals (referrer_id, referred_id) VALUES ($1, $2)', [referrerId, userId]);
                 bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`);
-                bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
+
+                try {
+                    // Generate a one-time use invite link
+                    const inviteLink = await bot.createChatInviteLink(groupChatId, {
+                        member_limit: 1,
+                        name: `Referral for ${firstName}`
+                    });
+                    bot.sendMessage(chatId, `Here is your personal one-time link to the group: ${inviteLink.invite_link}`);
+                } catch (e) {
+                    console.error("Failed to create invite link. Is the bot an admin with invite permissions?", e);
+                    bot.sendMessage(chatId, "Sorry, I couldn't generate an invite link right now. Please contact an admin.");
+                }
 
                 // Notify the referrer
                 bot.sendMessage(referrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${referrerId}, maybe they blocked the bot.`));
             } else {
-                 bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you've already used a referral link. Here is the link to the group: ${groupInviteLink}`);
+                 bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you've already used a referral link. If you need a new link to join, please contact an admin.`);
             }
 
         } else {
@@ -266,3 +277,4 @@ bot.on('left_chat_member', async (msg) => {
         client.release();
     }
 });
+
