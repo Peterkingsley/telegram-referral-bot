@@ -29,6 +29,26 @@ const pool = new Pool({
 
 console.log('Bot has been started...');
 
+// --- Reusable Keyboards ---
+const backToMenuKeyboard = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '⬅️ Back to Menu', callback_data: 'main_menu' }]
+        ]
+    }
+};
+
+const mainReplyKeyboard = {
+    reply_markup: {
+        keyboard: [
+            [{ text: '🔗 Get My Referral Link' }],
+            [{ text: '🏆 My Rank' }, { text: '📈 Top 10 Leaderboard' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+    }
+};
+
 // --- Database Helper Functions ---
 
 /**
@@ -82,18 +102,18 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
                 if (!existingReferral) {
                     // This is a completely new referral
                     await client.query('INSERT INTO referrals (referrer_id, referred_id) VALUES ($1, $2)', [newReferrerId, userId]);
-                    bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`);
-                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
-                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
+                    bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`, backToMenuKeyboard);
+                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`, backToMenuKeyboard);
+                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`, backToMenuKeyboard).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
                 } else if (existingReferral && !existingReferral.is_active) {
                     // User exists but left the group. We can re-assign them to a new referrer.
                     await client.query('UPDATE referrals SET referrer_id = $1 WHERE referred_id = $2', [newReferrerId, userId]);
-                    bot.sendMessage(chatId, `Welcome back, ${firstName}! You are being referred by a new user. Please join the group to complete the referral.`);
-                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
-                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} (a returning user) has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
+                    bot.sendMessage(chatId, `Welcome back, ${firstName}! You are being referred by a new user. Please join the group to complete the referral.`, backToMenuKeyboard);
+                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`, backToMenuKeyboard);
+                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} (a returning user) has used your referral link. You'll get your point once they join the group.`, backToMenuKeyboard).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
                 } else {
                     // User is already an active member referred by someone else.
-                    bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you are already an active member of our group.`);
+                    bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you are already an active member of our group.`, backToMenuKeyboard);
                 }
             } finally {
                 client.release();
@@ -103,22 +123,11 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
             // Case 2: A regular /start command, not a referral
             const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory — and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Tap “Get My Referral Link” to start earning points.\n\nYou can also check your rank, see the leaderboard, and stay tuned for Rishu updates & meme coin alpha.\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
 
-            const options = {
-                reply_markup: {
-                    keyboard: [
-                        [{ text: '🔗 Get My Referral Link' }],
-                        [{ text: '🏆 My Rank' }, { text: '📈 Top 10 Leaderboard' }]
-                    ],
-                    resize_keyboard: true,
-                    one_time_keyboard: false
-                }
-            };
-
-            bot.sendMessage(chatId, welcomeMessage, options);
+            bot.sendMessage(chatId, welcomeMessage, mainReplyKeyboard);
         }
     } catch (error) {
         console.error('Error in /start handler:', error);
-        bot.sendMessage(chatId, 'Sorry, something went wrong. Please try again later.');
+        bot.sendMessage(chatId, 'Sorry, something went wrong. Please try again later.', backToMenuKeyboard);
     }
 });
 
@@ -126,7 +135,7 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 bot.onText(/\/mylink|🔗 Get My Referral Link/, (msg) => {
     const chatId = msg.chat.id;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-    bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`);
+    bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, backToMenuKeyboard);
 });
 
 
@@ -146,13 +155,13 @@ bot.onText(/\/rank|🏆 My Rank/, async (msg) => {
 
         if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
             const { position, referral_count } = res.rows[0];
-            bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`);
+            bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, backToMenuKeyboard);
         } else {
-            bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!");
+            bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", backToMenuKeyboard);
         }
     } catch (error) {
         console.error('Error in /rank handler:', error);
-        bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.');
+        bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.', backToMenuKeyboard);
     }
 });
 
@@ -181,7 +190,7 @@ bot.onText(/\/top10|📈 Top 10 Leaderboard/, async (msg) => {
         );
 
         if (res.rows.length === 0) {
-            bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!');
+            bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!', backToMenuKeyboard);
             return;
         }
 
@@ -191,10 +200,25 @@ bot.onText(/\/top10|📈 Top 10 Leaderboard/, async (msg) => {
             leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referrals\n`;
         });
 
-        bot.sendMessage(chatId, leaderboardText);
+        bot.sendMessage(chatId, leaderboardText, backToMenuKeyboard);
     } catch (error) {
         console.error('Error in /top10 handler:', error);
-        bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.');
+        bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', backToMenuKeyboard);
+    }
+});
+
+// --- Callback Query Handler (for inline buttons) ---
+bot.on('callback_query', async (callbackQuery) => {
+    const msg = callbackQuery.message;
+    const data = callbackQuery.data;
+
+    // Acknowledge the button press to remove the loading icon
+    bot.answerCallbackQuery(callbackQuery.id);
+
+    if (data === 'main_menu') {
+        // Send the main welcome message again when "Back to Menu" is pressed
+        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory — and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Tap “Get My Referral Link” to start earning points.\n\nYou can also check your rank, see the leaderboard, and stay tuned for Rishu updates & meme coin alpha.\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+        bot.sendMessage(msg.chat.id, welcomeMessage, mainReplyKeyboard);
     }
 });
 
@@ -231,7 +255,7 @@ bot.on('new_chat_members', async (msg) => {
             console.log(`Referral completed for ${newMember.first_name} by ${referrer_id}`);
 
             // Notify the referrer of their success
-            bot.sendMessage(referrer_id, `✅ Success! ${newMember.first_name} has joined the group. Your referral count has increased.`).catch(err => console.log(`Could not notify referrer ${referrer_id}.`));
+            bot.sendMessage(referrer_id, `✅ Success! ${newMember.first_name} has joined the group. Your referral count has increased.`, backToMenuKeyboard).catch(err => console.log(`Could not notify referrer ${referrer_id}.`));
         } else {
             await client.query('ROLLBACK'); // Rollback if no referral found
         }
@@ -273,7 +297,7 @@ bot.on('left_chat_member', async (msg) => {
             console.log(`Referral count decreased for ${referrer_id} because ${leftMemberName} left.`);
 
             // Notify the referrer
-            bot.sendMessage(referrer_id, `❗️ Heads up! ${leftMemberName}, whom you referred, has left the group. Your referral count has been updated.`).catch(err => console.log(`Could not notify referrer ${referrer_id}.`));
+            bot.sendMessage(referrer_id, `❗️ Heads up! ${leftMemberName}, whom you referred, has left the group. Your referral count has been updated.`, backToMenuKeyboard).catch(err => console.log(`Could not notify referrer ${referrer_id}.`));
         } else {
             await client.query('ROLLBACK');
         }
