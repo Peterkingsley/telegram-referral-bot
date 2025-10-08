@@ -91,18 +91,18 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
                 if (!existingReferral) {
                     // This is a completely new referral
                     await client.query('INSERT INTO referrals (referrer_id, referred_id) VALUES ($1, $2)', [newReferrerId, userId]);
-                    bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`, backToMenuKeyboard);
-                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`, backToMenuKeyboard);
-                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`, backToMenuKeyboard).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
+                    bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`);
+                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
+                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
                 } else if (existingReferral && !existingReferral.is_active) {
                     // User exists but left the group. We can re-assign them to a new referrer.
                     await client.query('UPDATE referrals SET referrer_id = $1 WHERE referred_id = $2', [newReferrerId, userId]);
-                    bot.sendMessage(chatId, `Welcome back, ${firstName}! You are being referred by a new user. Please join the group to complete the referral.`, backToMenuKeyboard);
-                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`, backToMenuKeyboard);
-                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} (a returning user) has used your referral link. You'll get your point once they join the group.`, backToMenuKeyboard).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
+                    bot.sendMessage(chatId, `Welcome back, ${firstName}! You are being referred by a new user. Please join the group to complete the referral.`);
+                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
+                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} (a returning user) has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
                 } else {
                     // User is already an active member referred by someone else.
-                    bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you are already an active member of our group.`, backToMenuKeyboard);
+                    bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you are already an active member of our group.`);
                 }
             } finally {
                 client.release();
@@ -112,12 +112,11 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
             // Case 2: A regular /start command, not a referral
             const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Type the following commands to navigate:\n/mylink - Get your referral link\n/rank - Check your rank\n/top10 - See the leaderboard\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
 
-            // We no longer send the mainReplyKeyboard
             bot.sendMessage(chatId, welcomeMessage);
         }
     } catch (error) {
         console.error('Error in /start handler:', error);
-        bot.sendMessage(chatId, 'Sorry, something went wrong. Please try again later.', backToMenuKeyboard);
+        bot.sendMessage(chatId, 'Sorry, something went wrong. Please try again later.');
     }
 });
 
@@ -209,7 +208,6 @@ bot.on('callback_query', async (callbackQuery) => {
         // Send the main welcome message again when "Back to Menu" is pressed
         const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Type the following commands to navigate:\n/mylink - Get your referral link\n/rank - Check your rank\n/top10 - See the leaderboard\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
         
-        // We no longer send the mainReplyKeyboard
         bot.sendMessage(msg.chat.id, welcomeMessage);
     }
 });
