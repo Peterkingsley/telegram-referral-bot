@@ -38,22 +38,46 @@ bot.setMyCommands([
 ]);
 
 // --- Reusable Keyboards ---
-const backToMenuKeyboard = {
+
+const mainMenuKeyboard = {
     reply_markup: {
         inline_keyboard: [
+            [{ text: '🚀 Restart Bot', callback_data: 'main_menu' }, { text: '🔗 My referral link', callback_data: 'get_link' }],
+            [{ text: '🏆 My Rank', callback_data: 'get_rank' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }]
+        ]
+    }
+};
+
+// Contextual keyboard for the "My referral link" screen
+const myLinkKeyboard = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '🏆 My Rank', callback_data: 'get_rank' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }],
             [{ text: '⬅️ Back to Menu', callback_data: 'main_menu' }]
         ]
     }
 };
 
-const mainMenuKeyboard = {
+// Contextual keyboard for the "My Rank" screen
+const myRankKeyboard = {
     reply_markup: {
         inline_keyboard: [
-            [{ text: '🚀 Restart Bot', callback_data: 'main_menu' }, { text: '🔗 Get My Link', callback_data: 'get_link' }],
-            [{ text: '🏆 My Rank', callback_data: 'get_rank' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }]
+            [{ text: '🔗 My referral link', callback_data: 'get_link' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }],
+            [{ text: '⬅️ Back to Menu', callback_data: 'main_menu' }]
         ]
     }
 };
+
+// Contextual keyboard for the "Leaderboard" screen
+const leaderboardKeyboard = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '🔗 My referral link', callback_data: 'get_link' }, { text: '🏆 My Rank', callback_data: 'get_rank' }],
+            [{ text: '⬅️ Back to Menu', callback_data: 'main_menu' }]
+        ]
+    }
+};
+
 
 // --- Database Helper Functions ---
 
@@ -141,7 +165,7 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 bot.onText(/\/mylink/, (msg) => {
     const chatId = msg.chat.id;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-    bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, backToMenuKeyboard);
+    bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, myLinkKeyboard);
 });
 
 
@@ -161,13 +185,13 @@ bot.onText(/\/rank/, async (msg) => {
 
         if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
             const { position, referral_count } = res.rows[0];
-            bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, backToMenuKeyboard);
+            bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, myRankKeyboard);
         } else {
-            bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", backToMenuKeyboard);
+            bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", myRankKeyboard);
         }
     } catch (error) {
         console.error('Error in /rank handler:', error);
-        bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.', backToMenuKeyboard);
+        bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.', myRankKeyboard);
     }
 });
 
@@ -196,7 +220,7 @@ bot.onText(/\/top10/, async (msg) => {
         );
 
         if (res.rows.length === 0) {
-            bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!', backToMenuKeyboard);
+            bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!', leaderboardKeyboard);
             return;
         }
 
@@ -206,10 +230,10 @@ bot.onText(/\/top10/, async (msg) => {
             leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referral(s)\n`;
         });
 
-        bot.sendMessage(chatId, leaderboardText, backToMenuKeyboard);
+        bot.sendMessage(chatId, leaderboardText, leaderboardKeyboard);
     } catch (error) {
         console.error('Error in /top10 handler:', error);
-        bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', backToMenuKeyboard);
+        bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', leaderboardKeyboard);
     }
 });
 
@@ -230,7 +254,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
     } else if (data === 'get_link') {
         const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-        bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, backToMenuKeyboard);
+        bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, myLinkKeyboard);
 
     } else if (data === 'get_rank') {
         try {
@@ -245,13 +269,13 @@ bot.on('callback_query', async (callbackQuery) => {
 
             if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
                 const { position, referral_count } = res.rows[0];
-                bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, backToMenuKeyboard);
+                bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, myRankKeyboard);
             } else {
-                bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", backToMenuKeyboard);
+                bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", myRankKeyboard);
             }
         } catch (error) {
             console.error('Error in get_rank callback:', error);
-            bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.', backToMenuKeyboard);
+            bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.', myRankKeyboard);
         }
 
     } else if (data === 'get_leaderboard') {
@@ -261,7 +285,7 @@ bot.on('callback_query', async (callbackQuery) => {
             );
 
             if (res.rows.length === 0) {
-                bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!', backToMenuKeyboard);
+                bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!', leaderboardKeyboard);
                 return;
             }
 
@@ -271,10 +295,10 @@ bot.on('callback_query', async (callbackQuery) => {
                 leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referral(s)\n`;
             });
 
-            bot.sendMessage(chatId, leaderboardText, backToMenuKeyboard);
+            bot.sendMessage(chatId, leaderboardText, leaderboardKeyboard);
         } catch (error) {
             console.error('Error in get_leaderboard callback:', error);
-            bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', backToMenuKeyboard);
+            bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', leaderboardKeyboard);
         }
     }
 });
@@ -286,6 +310,13 @@ bot.on('callback_query', async (callbackQuery) => {
 bot.on('new_chat_members', async (msg) => {
     const newMember = msg.new_chat_members[0];
     const newMemberId = newMember.id;
+    const backToMenuKeyboard = {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: '⬅️ Back to Menu', callback_data: 'main_menu' }]
+            ]
+        }
+    };
 
     console.log(`${newMember.first_name} joined the group.`);
 
@@ -328,6 +359,13 @@ bot.on('new_chat_members', async (msg) => {
 bot.on('left_chat_member', async (msg) => {
     const leftMemberId = msg.left_chat_member.id;
     const leftMemberName = msg.left_chat_member.first_name;
+    const backToMenuKeyboard = {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: '⬅️ Back to Menu', callback_data: 'main_menu' }]
+            ]
+        }
+    };
 
     console.log(`${leftMemberName} left the group.`);
 
@@ -365,3 +403,4 @@ bot.on('left_chat_member', async (msg) => {
         client.release();
     }
 });
+
