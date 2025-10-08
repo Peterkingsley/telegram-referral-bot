@@ -38,6 +38,15 @@ const backToMenuKeyboard = {
     }
 };
 
+const mainMenuKeyboard = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '🔗 Get My Link', callback_data: 'get_link' }],
+            [{ text: '🏆 My Rank', callback_data: 'get_rank' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }]
+        ]
+    }
+};
+
 // --- Database Helper Functions ---
 
 /**
@@ -110,9 +119,9 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 
         } else {
             // Case 2: A regular /start command, not a referral
-            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Type the following commands to navigate:\n/mylink - Get your referral link\n/rank - Check your rank\n/top10 - See the leaderboard\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Use the buttons below to get your referral link, check your rank, or see the leaderboard.\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
 
-            bot.sendMessage(chatId, welcomeMessage);
+            bot.sendMessage(chatId, welcomeMessage, mainMenuKeyboard);
         }
     } catch (error) {
         console.error('Error in /start handler:', error);
@@ -199,6 +208,7 @@ bot.onText(/\/top10/, async (msg) => {
 // --- Callback Query Handler (for inline buttons) ---
 bot.on('callback_query', async (callbackQuery) => {
     const msg = callbackQuery.message;
+    const chatId = msg.chat.id;
     const data = callbackQuery.data;
 
     // Acknowledge the button press to remove the loading icon
@@ -206,9 +216,58 @@ bot.on('callback_query', async (callbackQuery) => {
 
     if (data === 'main_menu') {
         // Send the main welcome message again when "Back to Menu" is pressed
-        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Type the following commands to navigate:\n/mylink - Get your referral link\n/rank - Check your rank\n/top10 - See the leaderboard\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Use the buttons below to get your referral link, check your rank, or see the leaderboard.\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
         
-        bot.sendMessage(msg.chat.id, welcomeMessage);
+        bot.sendMessage(chatId, welcomeMessage, mainMenuKeyboard);
+
+    } else if (data === 'get_link') {
+        const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
+        bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, backToMenuKeyboard);
+
+    } else if (data === 'get_rank') {
+        try {
+            const rankQuery = `
+                WITH user_rank AS (
+                    SELECT telegram_id, referral_count, RANK() OVER (ORDER BY referral_count DESC) as position
+                    FROM users
+                )
+                SELECT position, referral_count FROM user_rank WHERE telegram_id = $1;
+            `;
+            const res = await pool.query(rankQuery, [chatId]);
+
+            if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
+                const { position, referral_count } = res.rows[0];
+                bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, backToMenuKeyboard);
+            } else {
+                bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", backToMenuKeyboard);
+            }
+        } catch (error) {
+            console.error('Error in get_rank callback:', error);
+            bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.', backToMenuKeyboard);
+        }
+
+    } else if (data === 'get_leaderboard') {
+        try {
+            const res = await pool.query(
+                'SELECT first_name, username, referral_count FROM users WHERE referral_count > 0 ORDER BY referral_count DESC LIMIT 10'
+            );
+
+            if (res.rows.length === 0) {
+                bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!', backToMenuKeyboard);
+                return;
+            }
+
+            let leaderboardText = '🏆 **Top 10 Referrers** 🏆\n\n';
+            res.rows.forEach((row, index) => {
+                const name = row.username ? `@${row.username}` : row.first_name;
+                leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referral(s)\n`;
+            });
+
+            bot.sendMessage(chatId, leaderboardText, backToMenuKeyboard);
+        } catch (error) {
+            console.error('Error in get_leaderboard callback:', error);
+            bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', backToMenuKeyboard);
+        }
     }
 });
 
