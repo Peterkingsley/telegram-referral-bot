@@ -29,18 +29,6 @@ const pool = new Pool({
 
 console.log('Bot has been started...');
 
-// --- Set Bot Commands for the Menu Button ---
-// This creates the menu button in the bottom-left corner of the chat.
-bot.setMyCommands([
-    { command: 'mylink', description: '🔗 Get My Link' },
-    { command: 'start', description: '🚀 Restart Bot' },
-    { command: 'rank', description: '🏆 My Rank' },
-    { command: 'top10', description: '📈 Leaderboard' }
-]).then(() => {
-    console.log('Bot menu commands have been set successfully.');
-}).catch(console.error);
-
-
 // --- Reusable Keyboards ---
 const backToMenuKeyboard = {
     reply_markup: {
@@ -122,7 +110,7 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 
         } else {
             // Case 2: A regular /start command, not a referral
-            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Use the 'Menu' button to get your referral link, check your rank, or see the leaderboard.\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Type the following commands to navigate:\n/mylink - Get your referral link\n/rank - Check your rank\n/top10 - See the leaderboard\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
 
             // We no longer send the mainReplyKeyboard
             bot.sendMessage(chatId, welcomeMessage);
@@ -219,7 +207,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
     if (data === 'main_menu') {
         // Send the main welcome message again when "Back to Menu" is pressed
-        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Use the 'Menu' button to get your referral link, check your rank, or see the leaderboard.\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
+        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Type the following commands to navigate:\n/mylink - Get your referral link\n/rank - Check your rank\n/top10 - See the leaderboard\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
         
         // We no longer send the mainReplyKeyboard
         bot.sendMessage(msg.chat.id, welcomeMessage);
