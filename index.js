@@ -165,10 +165,12 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 bot.onText(/\/mylink/, (msg) => {
     const chatId = msg.chat.id;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-    const message = `Here is your unique referral link:\n${referralLink}`;
+    // Updated message with instructions and Markdown for the code block
+    const message = `Here is your unique referral link.\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
     const options = {
-        ...myLinkKeyboard, // spread the existing keyboard options
-        disable_web_page_preview: true
+        ...myLinkKeyboard,
+        disable_web_page_preview: true,
+        parse_mode: 'Markdown' // Added parse_mode
     };
     bot.sendMessage(chatId, message, options);
 });
@@ -259,10 +261,12 @@ bot.on('callback_query', async (callbackQuery) => {
 
     } else if (data === 'get_link') {
         const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-        const message = `Here is your unique referral link:\n${referralLink}`;
+        // Updated message with instructions and Markdown for the code block
+        const message = `Here is your unique referral link.\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
         const options = {
             ...myLinkKeyboard,
-            disable_web_page_preview: true
+            disable_web_page_preview: true,
+            parse_mode: 'Markdown' // Added parse_mode
         };
         bot.sendMessage(chatId, message, options);
 
@@ -413,4 +417,3 @@ bot.on('left_chat_member', async (msg) => {
         client.release();
     }
 });
-
