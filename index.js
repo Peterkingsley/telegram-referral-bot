@@ -33,7 +33,7 @@ console.log('Bot has been started...');
 bot.setMyCommands([
     { command: 'start', description: '🚀 Restart the bot' },
     { command: 'mylink', description: '🔗 My referral link' },
-    { command: 'rank', description: '🏆 Check your rank' },
+    { command: 'rank', description: '🏆 Check my rank' },
     { command: 'top10', description: '📈 Show the leaderboard' },
 ]);
 
@@ -165,7 +165,12 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 bot.onText(/\/mylink/, (msg) => {
     const chatId = msg.chat.id;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-    bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, myLinkKeyboard);
+    const message = `Here is your unique referral link:\n${referralLink}`;
+    const options = {
+        ...myLinkKeyboard, // spread the existing keyboard options
+        disable_web_page_preview: true
+    };
+    bot.sendMessage(chatId, message, options);
 });
 
 
@@ -254,7 +259,12 @@ bot.on('callback_query', async (callbackQuery) => {
 
     } else if (data === 'get_link') {
         const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-        bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, myLinkKeyboard);
+        const message = `Here is your unique referral link:\n${referralLink}`;
+        const options = {
+            ...myLinkKeyboard,
+            disable_web_page_preview: true
+        };
+        bot.sendMessage(chatId, message, options);
 
     } else if (data === 'get_rank') {
         try {
