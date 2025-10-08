@@ -41,7 +41,7 @@ const backToMenuKeyboard = {
 const mainMenuKeyboard = {
     reply_markup: {
         inline_keyboard: [
-            [{ text: '🔗 Get My Link', callback_data: 'get_link' }],
+            [{ text: '🚀 Restart Bot', callback_data: 'main_menu' }, { text: '🔗 Get My Link', callback_data: 'get_link' }],
             [{ text: '🏆 My Rank', callback_data: 'get_rank' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }]
         ]
     }
