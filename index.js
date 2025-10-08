@@ -32,7 +32,7 @@ console.log('Bot has been started...');
 // Set the bot commands that appear in the menu in the desired order
 bot.setMyCommands([
     { command: 'start', description: '🚀 Restart the bot' },
-    { command: 'mylink', description: '🔗 Get your referral link' },
+    { command: 'mylink', description: '🔗 My referral link' },
     { command: 'rank', description: '🏆 Check your rank' },
     { command: 'top10', description: '📈 Show the leaderboard' },
 ]);
