@@ -165,7 +165,7 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 bot.onText(/\/mylink/, (msg) => {
     const chatId = msg.chat.id;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-    bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, myLinkKeyboard);
+    bot.sendMessage(chatId, referralLink, myLinkKeyboard);
 });
 
 
@@ -254,7 +254,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
     } else if (data === 'get_link') {
         const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-        bot.sendMessage(chatId, `Here is your unique referral link:\n${referralLink}`, myLinkKeyboard);
+        bot.sendMessage(chatId, referralLink, myLinkKeyboard);
 
     } else if (data === 'get_rank') {
         try {
