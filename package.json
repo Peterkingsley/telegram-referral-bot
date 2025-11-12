@@ -1,7 +1,7 @@
 {
-  "name": "telegram-referral-bot",
+  "name": "telegram-referral-bot-web",
   "version": "1.0.0",
-  "description": "A Telegram bot for managing a referral contest.",
+  "description": "A Telegram bot for managing a referral contest via webhooks.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,13 +9,16 @@
   "keywords": [
     "telegram",
     "bot",
-    "referral"
+    "referral",
+    "webhook",
+    "express"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "dotenv": "^16.3.1",
-    "node-telegram-bot-api": "^0.64.0",
-    "pg": "^8.11.3"
+    "express": "^4.19.2",           
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.12.0"                  
   }
 }

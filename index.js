@@ -1,24 +1,27 @@
-// --- Main Application File for Rishu Referral Contest Bot ---
+// --- Full Webhook Application File (index.js) ---
 
 // 1. Import necessary libraries
 require('dotenv').config(); // Loads environment variables from a .env file
 const TelegramBot = require('node-telegram-bot-api');
 const { Pool } = require('pg'); // PostgreSQL client
+const express = require('express'); // NEW: For the web service
 
 // 2. Get secrets from environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const databaseUrl = process.env.DATABASE_URL;
-const groupInviteLink = process.env.GROUP_INVITE_LINK; // Your telegram group invite link
-const botUsername = process.env.BOT_USERNAME; // Your bot's username without the '@'
+const groupInviteLink = process.env.GROUP_INVITE_LINK;
+const botUsername = process.env.BOT_USERNAME;
+const publicUrl = process.env.PUBLIC_URL; // NEW: The public HTTPS URL of your service
 
-// Basic validation to ensure environment variables are set
-if (!token || !databaseUrl || !groupInviteLink || !botUsername) {
-    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_INVITE_LINK, and BOT_USERNAME are set in your .env file.');
+// Basic validation
+if (!token || !databaseUrl || !groupInviteLink || !botUsername || !publicUrl) {
+    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_INVITE_LINK, BOT_USERNAME, and PUBLIC_URL are set in your .env file.');
     process.exit(1);
 }
 
-// 3. Initialize the Bot and Database
-const bot = new TelegramBot(token, { polling: true });
+// 3. Initialize the Bot, Database, and Web Server
+// Disable polling as we are switching to webhooks
+const bot = new TelegramBot(token, { polling: false }); 
 const pool = new Pool({
     connectionString: databaseUrl,
     // Required for connecting to cloud databases like on Render
@@ -27,9 +30,14 @@ const pool = new Pool({
     }
 });
 
-console.log('Bot has been started...');
+// Initialize Express
+const app = express();
+const port = process.env.PORT || 3000; // Use environment PORT or default to 3000
 
-// Set the bot commands that appear in the menu in the desired order
+// Middleware to parse the incoming JSON payload from Telegram
+app.use(express.json());
+
+// Set the bot commands that appear in the menu
 bot.setMyCommands([
     { command: 'start', description: '🚀 Restart the bot' },
     { command: 'mylink', description: '🔗 My referral link' },
@@ -37,7 +45,34 @@ bot.setMyCommands([
     { command: 'top10', description: '📈 Show the leaderboard' },
 ]);
 
-// --- Reusable Keyboards ---
+// --- Webhook Endpoint ---
+const webhookPath = '/webhook';
+const webhookUrl = `${publicUrl}${webhookPath}`;
+
+app.post(webhookPath, (req, res) => {
+    // Pass the update body to the bot library
+    bot.processUpdate(req.body); 
+
+    // IMPORTANT: Telegram requires an immediate 200 OK response
+    res.sendStatus(200); 
+});
+
+// Start the Express server
+app.listen(port, () => {
+    console.log(`Express server is listening on port ${port}`);
+
+    // Set the webhook once the server is successfully listening
+    bot.setWebHook(webhookUrl).then(success => {
+        if (success) {
+            console.log(`Webhook set successfully to: ${webhookUrl}`);
+        } else {
+            console.error('Failed to set webhook.');
+        }
+    }).catch(e => console.error('Error setting webhook:', e));
+});
+
+
+// --- Reusable Keyboards (No Change) ---
 
 const mainMenuKeyboard = {
     reply_markup: {
@@ -48,7 +83,6 @@ const mainMenuKeyboard = {
     }
 };
 
-// Contextual keyboard for the "My referral link" screen
 const myLinkKeyboard = {
     reply_markup: {
         inline_keyboard: [
@@ -58,7 +92,6 @@ const myLinkKeyboard = {
     }
 };
 
-// Contextual keyboard for the "My Rank" screen
 const myRankKeyboard = {
     reply_markup: {
         inline_keyboard: [
@@ -68,7 +101,6 @@ const myRankKeyboard = {
     }
 };
 
-// Contextual keyboard for the "Leaderboard" screen
 const leaderboardKeyboard = {
     reply_markup: {
         inline_keyboard: [
@@ -79,7 +111,7 @@ const leaderboardKeyboard = {
 };
 
 
-// --- Database Helper Functions ---
+// --- Database Helper Functions (No Change) ---
 
 /**
  * Gets a user from the database or creates a new one if they don't exist.
@@ -107,7 +139,7 @@ async function getOrCreateUser(telegramId, username, firstName) {
     }
 }
 
-// --- Bot Command Handlers ---
+// --- Bot Command Handlers (No Change) ---
 
 // Handler for the /start command
 bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
@@ -165,12 +197,11 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
 bot.onText(/\/mylink/, (msg) => {
     const chatId = msg.chat.id;
     const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-    // Updated message with instructions and Markdown for the code block
     const message = `Here is your unique referral link.\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
     const options = {
         ...myLinkKeyboard,
         disable_web_page_preview: true,
-        parse_mode: 'Markdown' // Added parse_mode
+        parse_mode: 'Markdown'
     };
     bot.sendMessage(chatId, message, options);
 });
@@ -192,7 +223,7 @@ bot.onText(/\/rank/, async (msg) => {
 
         if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
             const { position, referral_count } = res.rows[0];
-            bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, myRankKeyboard);
+            bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, { ...myRankKeyboard, parse_mode: 'Markdown' });
         } else {
             bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", myRankKeyboard);
         }
@@ -237,36 +268,33 @@ bot.onText(/\/top10/, async (msg) => {
             leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referral(s)\n`;
         });
 
-        bot.sendMessage(chatId, leaderboardText, leaderboardKeyboard);
+        bot.sendMessage(chatId, leaderboardText, { ...leaderboardKeyboard, parse_mode: 'Markdown' });
     } catch (error) {
         console.error('Error in /top10 handler:', error);
         bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', leaderboardKeyboard);
     }
 });
 
-// --- Callback Query Handler (for inline buttons) ---
+// --- Callback Query Handler (No Change) ---
 bot.on('callback_query', async (callbackQuery) => {
     const msg = callbackQuery.message;
     const chatId = msg.chat.id;
     const data = callbackQuery.data;
 
-    // Acknowledge the button press to remove the loading icon
+    // Acknowledge the button press
     bot.answerCallbackQuery(callbackQuery.id);
 
     if (data === 'main_menu') {
-        // Send the main welcome message again when "Back to Menu" is pressed
         const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Use the buttons below to get your referral link, check your rank, or see the leaderboard.\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
-        
         bot.sendMessage(chatId, welcomeMessage, mainMenuKeyboard);
 
     } else if (data === 'get_link') {
         const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-        // Updated message with instructions and Markdown for the code block
         const message = `Here is your unique referral link.\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
         const options = {
             ...myLinkKeyboard,
             disable_web_page_preview: true,
-            parse_mode: 'Markdown' // Added parse_mode
+            parse_mode: 'Markdown'
         };
         bot.sendMessage(chatId, message, options);
 
@@ -283,7 +311,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
             if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
                 const { position, referral_count } = res.rows[0];
-                bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, myRankKeyboard);
+                bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, { ...myRankKeyboard, parse_mode: 'Markdown' });
             } else {
                 bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", myRankKeyboard);
             }
@@ -309,7 +337,7 @@ bot.on('callback_query', async (callbackQuery) => {
                 leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referral(s)\n`;
             });
 
-            bot.sendMessage(chatId, leaderboardText, leaderboardKeyboard);
+            bot.sendMessage(chatId, leaderboardText, { ...leaderboardKeyboard, parse_mode: 'Markdown' });
         } catch (error) {
             console.error('Error in get_leaderboard callback:', error);
             bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', leaderboardKeyboard);
@@ -318,7 +346,7 @@ bot.on('callback_query', async (callbackQuery) => {
 });
 
 
-// --- Group Event Listeners ---
+// --- Group Event Listeners (No Change) ---
 
 // Listen for new members joining a chat
 bot.on('new_chat_members', async (msg) => {
