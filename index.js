@@ -5,7 +5,7 @@ require('dotenv').config(); // Loads environment variables from a .env file
 const TelegramBot = require('node-telegram-bot-api');
 const { Pool } = require('pg'); // PostgreSQL client
 const express = require('express'); // For the web service
-const cors = require('cors'); // <--- FIX: Added the CORS import
+const cors = require('cors'); // ✅ FIX: Import the CORS library
 
 // 2. Get secrets from environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -32,11 +32,10 @@ const pool = new Pool({
 });
 
 // Initialize Express
-const app = express(); // <--- 'app' is defined here!
-const port = process.env.PORT || 10000; // Use environment PORT or default to 10000 (standard for Render)
+const app = express(); // 'app' is defined here!
+const port = process.env.PORT || 10000; 
 
-// ⭐️ FIX: Use CORS middleware immediately after app initialization
-// This prevents the 'Access-Control-Allow-Origin' error from your local HTML file
+// ✅ FIX: Use CORS middleware immediately after app initialization
 app.use(cors());
 
 // Middleware to parse the incoming JSON payload from Telegram
@@ -351,7 +350,7 @@ bot.on('callback_query', async (callbackQuery) => {
 });
 
 
-// --- Broadcast Endpoint (UNAUTHENTICATED) ---
+// --- Broadcast Endpoint ---
 
 /**
  * Sends a message to all users in the database.
@@ -374,18 +373,29 @@ async function broadcastMessage(message) {
         // Send the message to each user
         for (const id of userIds) {
             try {
-                await bot.sendMessage(id, message);
+                // ✅ FIX: Removed { parse_mode: 'Markdown' } to send as plain text and avoid entity errors
+                await bot.sendMessage(id, message); 
                 successCount++;
                 
                 // Simple rate limiting (1 second delay for every 20 messages)
-                // This helps avoid hitting Telegram's global message rate limits
                 if (successCount % 20 === 0) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             } catch (err) {
-                // Common errors: User blocked the bot, chat not found
-                console.error(`Failed to send message to user ${id}: ${err.message}`);
                 failureCount++;
+                
+                // 🛑 NEW FIX: ETELEGRAM: 403 Forbidden means the user blocked the bot.
+                // We should remove them from the database to stop messaging them.
+                if (err.response && err.response.statusCode === 403) {
+                    console.log(`User ${id} blocked the bot. Removing from database.`);
+                    // Use a separate query to delete the blocked user
+                    await client.query('DELETE FROM users WHERE telegram_id = $1', [id]).catch(e => {
+                        console.error(`Error deleting blocked user ${id}: ${e.message}`);
+                    });
+                } else {
+                    // Log other errors (e.g., network issues, temporary failures)
+                    console.error(`Failed to send message to user ${id}: ${err.message}`);
+                }
             }
         }
     } finally {
@@ -407,7 +417,7 @@ app.post('/broadcast', async (req, res) => {
     try {
         // The time taken here is proportional to the number of users in your database.
         const results = await broadcastMessage(message);
-        console.log(`Broadcast finished: ${results.success} sent, ${results.failed} failed.`);
+        console.log(`Broadcast finished: ${results.success} sent, ${results.failed} failed. Total clean: ${results.failed} removals attempted.`);
 
         // 3. Respond with the final counts (Success, Failed)
         res.json({ 
