@@ -4,17 +4,15 @@
 require('dotenv').config(); // Loads environment variables from a .env file
 const TelegramBot = require('node-telegram-bot-api');
 const { Pool } = require('pg'); // PostgreSQL client
-const express = require('express'); // NEW: For the web service 
-
-// ⭐️ NEW: Use CORS middleware to allow requests from any origin (your local file)
-app.use(cors());
+const express = require('express'); // For the web service
+const cors = require('cors'); // <--- FIX: Added the CORS import
 
 // 2. Get secrets from environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const databaseUrl = process.env.DATABASE_URL;
 const groupInviteLink = process.env.GROUP_INVITE_LINK;
 const botUsername = process.env.BOT_USERNAME;
-const publicUrl = process.env.PUBLIC_URL; // NEW: The public HTTPS URL of your service
+const publicUrl = process.env.PUBLIC_URL; // The public HTTPS URL of your service (e.g., https://sales-5l55.onrender.com)
 
 // Basic validation
 if (!token || !databaseUrl || !groupInviteLink || !botUsername || !publicUrl) {
@@ -34,8 +32,12 @@ const pool = new Pool({
 });
 
 // Initialize Express
-const app = express();
+const app = express(); // <--- 'app' is defined here!
 const port = process.env.PORT || 10000; // Use environment PORT or default to 10000 (standard for Render)
+
+// ⭐️ FIX: Use CORS middleware immediately after app initialization
+// This prevents the 'Access-Control-Allow-Origin' error from your local HTML file
+app.use(cors());
 
 // Middleware to parse the incoming JSON payload from Telegram
 app.use(express.json());
@@ -376,6 +378,7 @@ async function broadcastMessage(message) {
                 successCount++;
                 
                 // Simple rate limiting (1 second delay for every 20 messages)
+                // This helps avoid hitting Telegram's global message rate limits
                 if (successCount % 20 === 0) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
@@ -391,7 +394,7 @@ async function broadcastMessage(message) {
     return { total: successCount + failureCount, success: successCount, failed: failureCount };
 }
 
-// **UPDATED:** Endpoint to trigger the broadcast - **NOW WAITS FOR COMPLETION** and returns results.
+// **CORRECTED ENDPOINT**: Now an async function that AWAITS the broadcast.
 app.post('/broadcast', async (req, res) => {
     // 1. Validation (only checking for the message content)
     const { message } = req.body;
@@ -402,10 +405,11 @@ app.post('/broadcast', async (req, res) => {
 
     // 2. Execute Broadcast (Wait for it to complete)
     try {
+        // The time taken here is proportional to the number of users in your database.
         const results = await broadcastMessage(message);
         console.log(`Broadcast finished: ${results.success} sent, ${results.failed} failed.`);
 
-        // 3. Respond with the final counts
+        // 3. Respond with the final counts (Success, Failed)
         res.json({ 
             status: 'Broadcast completed.',
             success_count: results.success,
