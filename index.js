@@ -32,7 +32,7 @@ const pool = new Pool({
 
 // Initialize Express
 const app = express();
-const port = process.env.PORT || 3000; // Use environment PORT or default to 3000
+const port = process.env.PORT || 10000; // Use environment PORT or default to 3000
 
 // Middleware to parse the incoming JSON payload from Telegram
 app.use(express.json());
