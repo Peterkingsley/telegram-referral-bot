@@ -32,7 +32,7 @@ const pool = new Pool({
 
 // Initialize Express
 const app = express();
-const port = process.env.PORT || 10000; // Use environment PORT or default to 3000
+const port = process.env.PORT || 10000; // Use environment PORT or default to 10000 (standard for Render)
 
 // Middleware to parse the incoming JSON payload from Telegram
 app.use(express.json());
@@ -342,6 +342,77 @@ bot.on('callback_query', async (callbackQuery) => {
             console.error('Error in get_leaderboard callback:', error);
             bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', leaderboardKeyboard);
         }
+    }
+});
+
+
+// --- Broadcast Endpoint (UNAUTHENTICATED) ---
+
+/**
+ * Sends a message to all users in the database.
+ * NOTE: Telegram bot limits apply (usually 30 messages/second).
+ * @param {string} message - The message text to send.
+ * @returns {Promise<{total: number, success: number, failed: number}>} Results of the broadcast.
+ */
+async function broadcastMessage(message) {
+    const client = await pool.connect();
+    let successCount = 0;
+    let failureCount = 0;
+
+    try {
+        // Fetch all user Telegram IDs
+        const res = await client.query('SELECT telegram_id FROM users');
+        const userIds = res.rows.map(row => row.telegram_id);
+
+        console.log(`Starting broadcast to ${userIds.length} users...`);
+
+        // Send the message to each user
+        for (const id of userIds) {
+            try {
+                await bot.sendMessage(id, message, { parse_mode: 'Markdown' });
+                successCount++;
+                
+                // Simple rate limiting (1 second delay for every 20 messages)
+                if (successCount % 20 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } catch (err) {
+                // Common errors: User blocked the bot, chat not found
+                console.error(`Failed to send message to user ${id}: ${err.message}`);
+                failureCount++;
+            }
+        }
+    } finally {
+        client.release();
+    }
+    return { total: successCount + failureCount, success: successCount, failed: failureCount };
+}
+
+// **UPDATED:** Endpoint to trigger the broadcast - **NOW WAITS FOR COMPLETION** and returns results.
+app.post('/broadcast', async (req, res) => {
+    // 1. Validation (only checking for the message content)
+    const { message } = req.body;
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        return res.status(400).json({ error: 'Missing or empty message body.' });
+    }
+
+    // 2. Execute Broadcast (Wait for it to complete)
+    try {
+        const results = await broadcastMessage(message);
+        console.log(`Broadcast finished: ${results.success} sent, ${results.failed} failed.`);
+
+        // 3. Respond with the final counts
+        res.json({ 
+            status: 'Broadcast completed.',
+            success_count: results.success,
+            failed_count: results.failed
+        });
+
+    } catch (err) {
+        console.error('Major error during broadcast:', err);
+        // Respond with a 500 status on major failure
+        res.status(500).json({ error: 'Major server error occurred during broadcast execution.' });
     }
 });
 

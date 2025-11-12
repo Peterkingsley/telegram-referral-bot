@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Broadcast Sender</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #responseStatus {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none; /* Keep display:none initially */
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+             background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚀 Telegram Bot Broadcaster</h1>
+
+    <div id="securityWarning" class="warning">
+        ⚠️ **Security Warning:** This endpoint is unauthenticated. Anyone with this page/URL can send a message to all bot users.
+    </div>
+
+    <label for="messageInput">Enter the message to broadcast (supports **Markdown**):</label>
+    <textarea id="messageInput" placeholder="E.g., **New Contest Alert!** Join the chat now."></textarea>
+
+    <button onclick="triggerBroadcast()">Send Broadcast to All Users</button>
+
+    <div id="responseStatus"></div>
+</div>
+
+<script>
+    // ⚠️ IMPORTANT: The endpoint now takes longer to respond, as it waits for the broadcast to finish.
+    const BROADCAST_ENDPOINT = 'https://sales-5l55.onrender.com/broadcast'; 
+
+    function displayStatus(message, type) {
+        const statusDiv = document.getElementById('responseStatus');
+        statusDiv.textContent = message;
+        statusDiv.className = '';
+        statusDiv.classList.add(type);
+        statusDiv.style.display = 'block';
+    }
+
+    async function triggerBroadcast() {
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value.trim();
+
+        if (message.length === 0) {
+            displayStatus('Message cannot be empty!', 'error');
+            return;
+        }
+
+        const button = document.querySelector('button');
+        button.disabled = true;
+        button.textContent = 'Sending... Please WAIT for completion (may take several seconds).';
+        displayStatus('Sending message... Do not close this window.', 'warning');
+
+        try {
+            const response = await fetch(BROADCAST_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'Broadcast completed.') {
+                // Success: Display the counts from the API response
+                const success = data.success_count || 0;
+                const failed = data.failed_count || 0;
+                const total = success + failed;
+
+                const statusMessage = `✅ BROADCAST COMPLETE!
+Total Users: ${total}
+Messages Sent Successfully: ${success}
+Messages Failed (Blocked Bot/Error): ${failed}`;
+                
+                displayStatus(statusMessage, 'success');
+                messageInput.value = ''; // Clear message on success
+
+            } else {
+                // Server returned an error (e.g., 400 Bad Request or 500 Internal Error)
+                displayStatus(`Error (${response.status}): ${data.error || 'Unknown server error.'}`, 'error');
+            }
+
+        } catch (error) {
+            // Network or CORS error
+            console.error('Fetch Error:', error);
+            displayStatus('Failed to connect to the server. Check your console and network.', 'error');
+        } finally {
+            // Re-enable button
+            button.disabled = false;
+            button.textContent = 'Send Broadcast to All Users';
+        }
+    }
+
+    // Display the warning on load
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('securityWarning').style.display = 'block';
+    });
+</script>
+
+</body>
+</html>
