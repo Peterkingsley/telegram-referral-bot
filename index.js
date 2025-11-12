@@ -374,7 +374,7 @@ async function broadcastMessage(message) {
         // Send the message to each user
         for (const id of userIds) {
             try {
-                await bot.sendMessage(id, message, { parse_mode: 'Markdown' });
+                await bot.sendMessage(id, message);
                 successCount++;
                 
                 // Simple rate limiting (1 second delay for every 20 messages)
