@@ -4,7 +4,10 @@
 require('dotenv').config(); // Loads environment variables from a .env file
 const TelegramBot = require('node-telegram-bot-api');
 const { Pool } = require('pg'); // PostgreSQL client
-const express = require('express'); // NEW: For the web service
+const express = require('express'); // NEW: For the web service 
+
+// ⭐️ NEW: Use CORS middleware to allow requests from any origin (your local file)
+app.use(cors());
 
 // 2. Get secrets from environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
