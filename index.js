@@ -65,6 +65,7 @@ bot.setMyCommands([
     { command: 'mylink', description: '🔗 My referral link' },
     { command: 'rank', description: '🏆 Check my rank' },
     { command: 'top10', description: '📈 Show the leaderboard' },
+    { command: 'mass', description: '📢 Send broadcast (admin)' },
 ]);
 
 // --- Webhook / Polling Logic ---
@@ -206,6 +207,23 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
     } catch (error) {
         console.error('Error in /start command:', error);
         bot.sendMessage(chatId, 'Something went wrong. Please try again later.');
+    }
+});
+
+// Handler for the /mass command
+bot.onText(/\/mass (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const broadcastText = match[1];
+
+    console.log(`Broadcast requested: ${broadcastText}`);
+
+    try {
+        bot.sendMessage(chatId, "⏳ Starting broadcast to all users...");
+        const results = await broadcastMessage(broadcastText);
+        bot.sendMessage(chatId, `✅ Broadcast completed!\n\nSent: ${results.success}\nFailed: ${results.failed}\nTotal: ${results.total}`);
+    } catch (error) {
+        console.error("Error in /mass command:", error);
+        bot.sendMessage(chatId, "❌ Something went wrong during the broadcast. Please check logs.");
     }
 });
 
