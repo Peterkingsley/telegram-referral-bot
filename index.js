@@ -1,4 +1,4 @@
-// --- Full Webhook Application File (index.js) ---
+// --- Full Application File (index.js) ---
 
 // 1. Import necessary libraries
 require('dotenv').config(); // Loads environment variables from a .env file
@@ -15,14 +15,16 @@ const botUsername = process.env.BOT_USERNAME;
 const publicUrl = process.env.PUBLIC_URL; // The public HTTPS URL of your service (e.g., https://sales-5l55.onrender.com)
 
 // Basic validation
-if (!token || !databaseUrl || !groupInviteLink || !botUsername || !publicUrl) {
-    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_INVITE_LINK, BOT_USERNAME, and PUBLIC_URL are set in your .env file.');
+if (!token || !databaseUrl || !groupInviteLink || !botUsername) {
+    console.error('CRITICAL ERROR: Make sure TELEGRAM_BOT_TOKEN, DATABASE_URL, GROUP_INVITE_LINK, and BOT_USERNAME are set in your .env file.');
     process.exit(1);
 }
 
 // 3. Initialize the Bot, Database, and Web Server
-// Disable polling as we are switching to webhooks
-const bot = new TelegramBot(token, { polling: false }); 
+// If PUBLIC_URL is provided, we use webhooks. Otherwise, we fallback to polling.
+const useWebhooks = !!publicUrl;
+const bot = new TelegramBot(token, { polling: !useWebhooks });
+
 const pool = new Pool({
     connectionString: databaseUrl,
     // Required for connecting to cloud databases like on Render
@@ -32,7 +34,7 @@ const pool = new Pool({
 });
 
 // Initialize Express
-const app = express(); // 'app' is defined here!
+const app = express();
 const port = process.env.PORT || 10000; 
 
 // ✅ FIX: Use CORS middleware immediately after app initialization
@@ -49,31 +51,37 @@ bot.setMyCommands([
     { command: 'top10', description: '📈 Show the leaderboard' },
 ]);
 
-// --- Webhook Endpoint ---
-const webhookPath = '/webhook';
-const webhookUrl = `${publicUrl}${webhookPath}`;
+// --- Webhook / Polling Logic ---
+if (useWebhooks) {
+    const webhookPath = '/webhook';
+    const webhookUrl = `${publicUrl}${webhookPath}`;
 
-app.post(webhookPath, (req, res) => {
-    // Pass the update body to the bot library
-    bot.processUpdate(req.body); 
+    app.post(webhookPath, (req, res) => {
+        // Pass the update body to the bot library
+        bot.processUpdate(req.body);
+        // IMPORTANT: Telegram requires an immediate 200 OK response
+        res.sendStatus(200);
+    });
 
-    // IMPORTANT: Telegram requires an immediate 200 OK response
-    res.sendStatus(200); 
-});
+    // Start the Express server
+    app.listen(port, () => {
+        console.log(`Express server is listening on port ${port} (Webhook Mode)`);
 
-// Start the Express server
-app.listen(port, () => {
-    console.log(`Express server is listening on port ${port}`);
-
-    // Set the webhook once the server is successfully listening
-    bot.setWebHook(webhookUrl).then(success => {
-        if (success) {
-            console.log(`Webhook set successfully to: ${webhookUrl}`);
-        } else {
-            console.error('Failed to set webhook.');
-        }
-    }).catch(e => console.error('Error setting webhook:', e));
-});
+        // Set the webhook once the server is successfully listening
+        bot.setWebHook(webhookUrl).then(success => {
+            if (success) {
+                console.log(`Webhook set successfully to: ${webhookUrl}`);
+            } else {
+                console.error('Failed to set webhook.');
+            }
+        }).catch(e => console.error('Error setting webhook:', e));
+    });
+} else {
+    // Start the Express server for the broadcast endpoint even in polling mode
+    app.listen(port, () => {
+        console.log(`Express server is listening on port ${port} (Polling Mode)`);
+    });
+}
 
 
 // --- Reusable Keyboards (No Change) ---
@@ -148,153 +156,57 @@ async function getOrCreateUser(telegramId, username, firstName) {
 // Handler for the /start command
 bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const username = msg.from.username;
-    const firstName = msg.from.first_name;
-    const newReferrerId = match ? match[1] : null; // The referrer's ID, if present
+    const referralCode = match[1]; // The referral code (if provided)
+    const username = msg.from.username || '';
+    const firstName = msg.from.first_name || 'User';
+
+    console.log(`User ${firstName} started the bot with code: ${referralCode}`);
 
     try {
-        // Ensure the user is in our database
-        await getOrCreateUser(userId, username, firstName);
+        // 1. Get or create the user in the database
+        const user = await getOrCreateUser(chatId, username, firstName);
 
-        // Case 1: The user was referred by someone
-        if (newReferrerId && Number(newReferrerId) !== userId) {
-            const client = await pool.connect();
-            try {
-                // Check if this user was already referred
-                const existingReferralRes = await client.query('SELECT * FROM referrals WHERE referred_id = $1', [userId]);
-                const existingReferral = existingReferralRes.rows[0];
+        // 2. Handle Referral Logic (only if a code is present and it's not the user's own code)
+        if (referralCode && referralCode !== chatId.toString()) {
+            const referrerId = parseInt(referralCode);
 
-                if (!existingReferral) {
-                    // This is a completely new referral
-                    await client.query('INSERT INTO referrals (referrer_id, referred_id) VALUES ($1, $2)', [newReferrerId, userId]);
-                    bot.sendMessage(chatId, `Welcome, ${firstName}! You were referred. Please join our group to complete the referral.`);
-                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
-                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
-                } else if (existingReferral && !existingReferral.is_active) {
-                    // User exists but left the group. We can re-assign them to a new referrer.
-                    await client.query('UPDATE referrals SET referrer_id = $1 WHERE referred_id = $2', [newReferrerId, userId]);
-                    bot.sendMessage(chatId, `Welcome back, ${firstName}! You are being referred by a new user. Please join the group to complete the referral.`);
-                    bot.sendMessage(chatId, `Here is the link to the group: ${groupInviteLink}`);
-                    bot.sendMessage(newReferrerId, `🎉 Great news! ${firstName} (a returning user) has used your referral link. You'll get your point once they join the group.`).catch(err => console.log(`Could not notify referrer ${newReferrerId}, maybe they blocked the bot.`));
-                } else {
-                    // User is already an active member referred by someone else.
-                    bot.sendMessage(chatId, `Welcome back, ${firstName}! It looks like you are already an active member of our group.`);
-                }
-            } finally {
-                client.release();
+            // Check if this user was already referred
+            const checkReferral = await pool.query('SELECT * FROM referrals WHERE referred_id = $1', [chatId]);
+
+            if (checkReferral.rows.length === 0) {
+                // Register a new referral (initially inactive until they join the group)
+                await pool.query(
+                    'INSERT INTO referrals (referrer_id, referred_id, is_active) VALUES ($1, $2, false)',
+                    [referrerId, chatId]
+                );
+                console.log(`User ${chatId} registered as a referral for ${referrerId}`);
             }
-
-        } else {
-            // Case 2: A regular /start command, not a referral
-            const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Use the buttons below to get your referral link, check your rank, or see the leaderboard.\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
-
-            bot.sendMessage(chatId, welcomeMessage, mainMenuKeyboard);
         }
+
+        // 3. Send the Welcome Message
+        const welcomeMessage = `Hello ${firstName}! 👋\n\nWelcome to our referral contest. Join our group using the link below and refer your friends to win prizes! 🏆\n\nGroup Link: ${groupInviteLink}`;
+        bot.sendMessage(chatId, welcomeMessage, mainMenuKeyboard);
+
     } catch (error) {
-        console.error('Error in /start handler:', error);
-        bot.sendMessage(chatId, 'Sorry, something went wrong. Please try again later.');
+        console.error('Error in /start command:', error);
+        bot.sendMessage(chatId, 'Something went wrong. Please try again later.');
     }
 });
 
-// Handler for the /mylink command
-bot.onText(/\/mylink/, (msg) => {
-    const chatId = msg.chat.id;
-    const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-    const message = `Here is your unique referral link.\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
-    const options = {
-        ...myLinkKeyboard,
-        disable_web_page_preview: true,
-        parse_mode: 'Markdown'
-    };
-    bot.sendMessage(chatId, message, options);
-});
-
-
-// Handler for the /rank command
-bot.onText(/\/rank/, async (msg) => {
-    const chatId = msg.chat.id;
-    try {
-        // The subquery calculates the rank by counting how many users have more referrals
-        const rankQuery = `
-            WITH user_rank AS (
-                SELECT telegram_id, referral_count, RANK() OVER (ORDER BY referral_count DESC) as position
-                FROM users
-            )
-            SELECT position, referral_count FROM user_rank WHERE telegram_id = $1;
-        `;
-        const res = await pool.query(rankQuery, [chatId]);
-
-        if (res.rows.length > 0 && res.rows[0].referral_count > 0) {
-            const { position, referral_count } = res.rows[0];
-            bot.sendMessage(chatId, `You have **${referral_count}** referrals.\nYour current rank is **${position}**!`, { ...myRankKeyboard, parse_mode: 'Markdown' });
-        } else {
-            bot.sendMessage(chatId, "You haven't referred anyone yet. Use your referral link to get started!", myRankKeyboard);
-        }
-    } catch (error) {
-        console.error('Error in /rank handler:', error);
-        bot.sendMessage(chatId, 'Could not retrieve your rank. Please try again.', myRankKeyboard);
-    }
-});
-
-
-// Handler for the /top10 command
-bot.onText(/\/top10/, async (msg) => {
-    const chatId = msg.chat.id;
-
-    // Admin check for groups
-    if (msg.chat.type === 'group' || msg.chat.type === 'supergroup') {
-        try {
-            const chatMember = await bot.getChatMember(chatId, msg.from.id);
-            if (!['creator', 'administrator'].includes(chatMember.status)) {
-                // Silently ignore non-admins in groups
-                return;
-            }
-        } catch (error) {
-            console.error("Error checking admin status:", error);
-            return;
-        }
-    }
-
-    try {
-        const res = await pool.query(
-            'SELECT first_name, username, referral_count FROM users WHERE referral_count > 0 ORDER BY referral_count DESC LIMIT 10'
-        );
-
-        if (res.rows.length === 0) {
-            bot.sendMessage(chatId, 'The leaderboard is empty. No one has any referrals yet!', leaderboardKeyboard);
-            return;
-        }
-
-        let leaderboardText = '🏆 **Top 10 Referrers** 🏆\n\n';
-        res.rows.forEach((row, index) => {
-            const name = row.username ? `@${row.username}` : row.first_name;
-            leaderboardText += `${index + 1}. ${name} - ${row.referral_count} referral(s)\n`;
-        });
-
-        bot.sendMessage(chatId, leaderboardText, { ...leaderboardKeyboard, parse_mode: 'Markdown' });
-    } catch (error) {
-        console.error('Error in /top10 handler:', error);
-        bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', leaderboardKeyboard);
-    }
-});
-
-// --- Callback Query Handler (No Change) ---
+// Handle generic menu button clicks
 bot.on('callback_query', async (callbackQuery) => {
-    const msg = callbackQuery.message;
-    const chatId = msg.chat.id;
+    const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
 
-    // Acknowledge the button press
+    // Answer callback query to remove "loading" state on button
     bot.answerCallbackQuery(callbackQuery.id);
 
     if (data === 'main_menu') {
-        const welcomeMessage = `🚀 Welcome to the Rishu Referral Race!\n\nWhere meme lovers and traders battle for glory and real rewards. 💰\n🔥 Here’s what’s up:\n\nInvite your friends to join the Rishu Telegram community and climb the leaderboard.\n\nTop referrers win:\n\n🥇 $100\n🥈 $60\n🥉 $40\n\n👉 Use the buttons below to get your referral link, check your rank, or see the leaderboard.\n\nLet’s make Rishu go viral. The more you invite, the higher you rise. 🌕\n\n#RishuArmy | #RishuCoin | #ReferralRace`;
-        bot.sendMessage(chatId, welcomeMessage, mainMenuKeyboard);
+        bot.sendMessage(chatId, 'What would you like to do?', mainMenuKeyboard);
 
     } else if (data === 'get_link') {
         const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-        const message = `Here is your unique referral link.\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
+        const message = `Here is your unique referral link! Share it with your friends. When they join the group through this link, you get a point! 🚀\n\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
         const options = {
             ...myLinkKeyboard,
             disable_web_page_preview: true,
