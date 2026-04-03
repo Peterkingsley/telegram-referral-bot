@@ -38,7 +38,23 @@ const app = express();
 const port = process.env.PORT || 10000; 
 
 // ✅ FIX: Use CORS middleware immediately after app initialization
-app.use(cors());
+// ✅ IMPROVED CORS: Explicitly allow "null" origin (common for local file://) and handle OPTIONS
+app.use(cors({
+    origin: function (origin, callback) {
+        // allow requests with no origin (like mobile apps or curl requests)
+        // or specifically handle "null" origin for local file tests
+        if (!origin || origin === 'null') {
+            return callback(null, true);
+        }
+        return callback(null, true); // In development, allowing all for now. Ideally, restrict to your domain.
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+
+// Explicitly handle preflight requests
+app.options('*', cors());
 
 // Middleware to parse the incoming JSON payload from Telegram
 app.use(express.json());
@@ -318,6 +334,7 @@ async function broadcastMessage(message) {
 
 // **CORRECTED ENDPOINT**: Now an async function that AWAITS the broadcast.
 app.post('/broadcast', async (req, res) => {
+    console.log('Incoming broadcast request from origin:', req.headers.origin);
     // 1. Validation (only checking for the message content)
     const { message } = req.body;
 
