@@ -65,7 +65,7 @@ bot.setMyCommands([
     { command: 'mylink', description: '🔗 My referral link' },
     { command: 'rank', description: '🏆 Check my rank' },
     { command: 'top10', description: '📈 Show the leaderboard' },
-    { command: 'mass', description: '📢 Send broadcast (admin)' },
+    { command: 'mass', description: '📢 Send broadcast to all users' },
 ]);
 
 // --- Webhook / Polling Logic ---
@@ -107,7 +107,8 @@ const mainMenuKeyboard = {
     reply_markup: {
         inline_keyboard: [
             [{ text: '🚀 Restart Bot', callback_data: 'main_menu' }, { text: '🔗 My referral link', callback_data: 'get_link' }],
-            [{ text: '🏆 My Rank', callback_data: 'get_rank' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }]
+            [{ text: '🏆 My Rank', callback_data: 'get_rank' }, { text: '📈 Leaderboard', callback_data: 'get_leaderboard' }],
+            [{ text: '📢 Broadcast', callback_data: 'send_broadcast' }]
         ]
     }
 };
@@ -200,12 +201,12 @@ bot.onText(/\/start(?: (.+))?/, async (msg, match) => {
             }
         }
 
-        // 3. Send the Welcome Message
-        const welcomeMessage = `Hello ${firstName}! 👋\n\nWelcome to our referral contest. Join our group using the link below and refer your friends to win prizes! 🏆\n\nGroup Link: ${groupInviteLink}`;
-        bot.sendMessage(chatId, welcomeMessage, mainMenuKeyboard);
+        // 3. Welcome Message
+        const welcomeMessage = `Hello **${firstName}**! Welcome to the referral contest.\n\nUse the menu below to participate and track your progress.`;
+        bot.sendMessage(chatId, welcomeMessage, { ...mainMenuKeyboard, parse_mode: 'Markdown' });
 
     } catch (error) {
-        console.error('Error in /start command:', error);
+        console.error('Error in /start handler:', error);
         bot.sendMessage(chatId, 'Something went wrong. Please try again later.');
     }
 });
@@ -240,7 +241,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
     } else if (data === 'get_link') {
         const referralLink = `https://t.me/${botUsername}?start=${chatId}`;
-        const message = `Here is your unique referral link! Share it with your friends. When they join the group through this link, you get a point! 🚀\n\nClick the link below to copy it 👇\n\n\`${referralLink}\``;
+        const message = `Here is your unique referral link:\n\n\`${referralLink}\`\n\nInvite your friends to join the group via this link!`;
         const options = {
             ...myLinkKeyboard,
             disable_web_page_preview: true,
@@ -292,6 +293,8 @@ bot.on('callback_query', async (callbackQuery) => {
             console.error('Error in get_leaderboard callback:', error);
             bot.sendMessage(chatId, 'Could not retrieve the leaderboard. Please try again.', leaderboardKeyboard);
         }
+    } else if (data === 'send_broadcast') {
+        bot.sendMessage(chatId, 'To send a broadcast message to all users, use the command:\n\n/mass <your message>\n\nExample: /mass Hello everyone!');
     }
 });
 

@@ -75,11 +75,7 @@
 <body>
 
 <div class="container">
-    <h1>🚀 Telegram Bot Broadcaster</h1>
-
-    <div id="securityWarning" class="warning">
-        ⚠️ **Security Warning:** This endpoint is unauthenticated. Anyone with this page/URL can send a message to all bot users.
-    </div>
+    <h1>🚀 Public Telegram Bot Broadcaster</h1>
 
     <label for="messageInput">Enter the message to broadcast (supports **Markdown**):</label>
     <textarea id="messageInput" placeholder="E.g., **New Contest Alert!** Join the chat now."></textarea>
@@ -157,11 +153,6 @@ Messages Failed (Blocked Bot/Error): ${failed}`;
             button.textContent = 'Send Broadcast to All Users';
         }
     }
-
-    // Display the warning on load
-    document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('securityWarning').style.display = 'block';
-    });
 </script>
 
 </body>
